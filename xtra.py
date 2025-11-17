@@ -95,7 +95,7 @@ class ButtonMaker:
         elif position == "footer":
             self._footer_button.append(btn)
 
-    def url_button(self, key, url, position=None):  # ✅ New method
+    def url_button(self, key, url, position=None):
         btn = InlineKeyboardButton(text=key, url=url)
         if not position:
             self._button.append(btn)
@@ -160,8 +160,19 @@ def parse_mega_json(data, link):
 async def send_log(client, user, links, results):
     if not LOG_CHANNEL:
         return
+
     log_channel_id = LOG_CHANNEL[0]
-    user_display = f"@{user.username}" if getattr(user, "username", None) else f"{user.first_name} (<code>{user.id}</code>)"
+
+    # FIX: safe fallback
+    if user is None:
+        user_display = "Unknown User"
+    else:
+        user_display = (
+            f"@{user.username}"
+            if getattr(user, "username", None)
+            else f"{user.first_name} (<code>{user.id}</code>)"
+        )
+
     log_text = (
         f"<b>Check Task Log</b>\n"
         f"User: {user_display}\n"
@@ -170,10 +181,12 @@ async def send_log(client, user, links, results):
         "\n\n<b>Results:</b>\n"
         + ("\n".join(results) if results else "No valid MEGA info found.")
     )
+
     try:
         await client.send_message(chat_id=log_channel_id, text=log_text, disable_web_page_preview=True)
     except Exception:
         pass
+
 async def check_cmd(client, message: Message):
     text = message.text or message.caption or ""
     links = list({x.strip() for x in re.findall(LINK_REGEX, text) if x.strip()})
@@ -197,11 +210,14 @@ async def check_cmd(client, message: Message):
 
     text_output = "\n".join(valid_results)
 
-    user_display = (
-        f"@{message.from_user.username}"
-        if getattr(message.from_user, "username", None)
-        else f"{message.from_user.first_name} (<code>{message.from_user.id}</code>)"
-    )
+    if message.from_user is None:
+        user_display = "Unknown User"
+    else:
+        user_display = (
+            f"@{message.from_user.username}"
+            if getattr(message.from_user, "username", None)
+            else f"{message.from_user.first_name} (<code>{message.from_user.id}</code>)"
+        )
 
     text_output += f"\n\n<b>By : {user_display}</b>"
 
@@ -220,7 +236,7 @@ async def check_cmd(client, message: Message):
         )
 
     await edit_message(wait_msg, text_output, markdown=False)
-    
+
 async def check_single_link(link):
     async with aiohttp.ClientSession() as session:
         try:
