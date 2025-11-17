@@ -1,18 +1,8 @@
-import re
-from pyrogram import Client, filters
-from mc import check_cmd, LINK_REGEX
+from bot import Bot
+from pyrogram import idle
 
-API_ID = 
-API_HASH = ""
-BOT_TOKEN = ""
-
-app = Client("mega_checker_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
-
-@app.on_message(filters.text | filters.caption)
-async def auto_check_mega(client, message):
-    if not re.search(LINK_REGEX, message.text or message.caption or ""):
-        return
-    await check_cmd(client, message)
-
-print("bot runnning")
-app.run()
+try:
+    idle()
+except Exception as e:
+    print(f"Error deploying: {e}")
+    Bot.stop()
