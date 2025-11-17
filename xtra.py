@@ -174,31 +174,53 @@ async def send_log(client, user, links, results):
         await client.send_message(chat_id=log_channel_id, text=log_text, disable_web_page_preview=True)
     except Exception:
         pass
-
 async def check_cmd(client, message: Message):
     text = message.text or message.caption or ""
     links = list({x.strip() for x in re.findall(LINK_REGEX, text) if x.strip()})
     if not links:
         return
-    wait_msg = await send_message(message, f"Checking {len(links)} MEGA link{'s' if len(links) > 1 else ''}...", block=True)
+
+    wait_msg = await send_message(
+        message,
+        f"Checking {len(links)} MEGA link{'s' if len(links) > 1 else ''}...",
+        block=True
+    )
+
     tasks = [check_single_link(link) for link in links]
     results = await asyncio.gather(*tasks)
     valid_results = [res for res in results if res]
+
     await send_log(client, message.from_user, links, valid_results)
+
     if not valid_results:
         return await edit_message(wait_msg, "No valid MEGA info found.", markdown=False)
+
     text_output = "\n".join(valid_results)
-    user_display = f"@{message.from_user.username}" if getattr(message.from_user, "username", None) else f"{message.from_user.first_name} (<code>{message.from_user.id}</code>)"
+
+    user_display = (
+        f"@{message.from_user.username}"
+        if getattr(message.from_user, "username", None)
+        else f"{message.from_user.first_name} (<code>{message.from_user.id}</code>)"
+    )
+
     text_output += f"\n\n<b>By : {user_display}</b>"
+
     bm = ButtonMaker()
+
     if len(valid_results) == 1:
-        import re
         match = re.search(LINK_REGEX, valid_results[0])
         if match:
             bm.url_button("Open in MEGA", match.group(0))
-        return await edit_message(wait_msg, text_output, buttons=bm.build_menu(1), markdown=False)
-    await edit_message(wait_msg, text_output, markdown=False)
 
+        return await edit_message(
+            wait_msg,
+            text_output,
+            buttons=bm.build_menu(1),
+            markdown=False
+        )
+
+    await edit_message(wait_msg, text_output, markdown=False)
+    
 async def check_single_link(link):
     async with aiohttp.ClientSession() as session:
         try:
