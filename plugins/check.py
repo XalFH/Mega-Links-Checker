@@ -1,6 +1,6 @@
 import re
 from pyrogram import Client, filters
-from mc import check_cmd, LINK_REGEX
+from xtra import check_cmd, LINK_REGEX
 
 @Client.on_message(filters.text | filters.caption)
 async def auto_check_mega(client, message):
