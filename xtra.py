@@ -163,7 +163,6 @@ async def send_log(client, user, links, results):
 
     log_channel_id = LOG_CHANNEL[0]
 
-    # FIX: safe fallback
     if user is None:
         user_display = "Unknown User"
     else:
