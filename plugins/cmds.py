@@ -4,6 +4,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from xtra import check_cmd, LINK_REGEX
 
 WELCOME = "Hello! Send me any MEGA link and I will check it."
+IMG = "https://envs.sh/xLo.jpg/HGBOTZ.jpg"
 
 btns = InlineKeyboardMarkup(
     [[InlineKeyboardButton("Repo", url="https://github.com/XalFH/Mega-Links-Checker")]]
@@ -18,8 +19,9 @@ async def auto_check_mega(client, message):
 
 @Client.on_message(filters.command("start"))
 async def start_cmd(client, message):
-    await message.reply_text(
-        WELCOME,
+    await message.reply_photo(
+        IMG,
+        caption=WELCOME,
         reply_markup=btns,
         quote=True
     )
