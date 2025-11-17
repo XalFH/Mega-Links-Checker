@@ -1,12 +1,10 @@
 import re
-import uuid
 import asyncio
 import aiohttp
-from pyrogram.types import Message, CallbackQuery
+from pyrogram.types import Message
 from xtra import ButtonMaker, send_message, edit_message
 
 LOG_CHANNEL = [-1002405234042]
-AUTH_CHATS = [-1002423975548]
 
 CHECK_FORMAT = (
     "<blockquote><b>Name: {name}</b></blockquote>\n"
@@ -16,6 +14,7 @@ CHECK_FORMAT = (
     "sɪᴢᴇ : {size}\n"
     'Lɪɴᴋ : <a href="{link}">Cʟɪᴄᴋ Hᴇʀᴇ</a>'
 )
+
 LINK_REGEX = r'https:\/\/mega\.nz\/(?:file|folder)\/[\w-]+(?:#[\w-]+)?'
 API_URL = "https://mega-checker-api.onrender.com/api"
 
@@ -46,8 +45,6 @@ async def send_log(client, user, links, results):
         pass
 
 async def check_cmd(client, message: Message):
-    if message.chat.id not in AUTH_CHATS:
-        return
     text = message.text or message.caption or ""
     links = list({x.strip() for x in re.findall(LINK_REGEX, text) if x.strip()})
     if not links:
@@ -64,19 +61,19 @@ async def check_cmd(client, message: Message):
     text_output += f"\n\n<b>By : {user_display}</b>"
     bm = ButtonMaker()
     if len(valid_results) == 1:
+        import re
         match = re.search(LINK_REGEX, valid_results[0])
         if match:
             bm.url_button("Open in MEGA", match.group(0))
-        await edit_message(wait_msg, text_output, buttons=bm.build_menu(1), markdown=False)
-    else:
-        await edit_message(wait_msg, text_output, markdown=False)
+        return await edit_message(wait_msg, text_output, buttons=bm.build_menu(1), markdown=False)
+    await edit_message(wait_msg, text_output, markdown=False)
 
 async def check_single_link(link):
     async with aiohttp.ClientSession() as session:
         try:
             async with session.post(API_URL, json={"url": link}) as resp:
                 data = await resp.json()
-        except Exception:
+        except:
             return None
     if "error" in data:
         return None
