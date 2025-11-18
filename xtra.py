@@ -1,84 +1,15 @@
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from pyrogram import enums
+from pyrogram.errors import FloodWait, MessageNotModified, MessageEmpty
 import logging
 import re
 import asyncio
 import aiohttp
-from pyrogram import enums
-from asyncio import gather, sleep
-from pyrogram.errors import FloodWait, MessageNotModified, MessageEmpty
-from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
+from asyncio import sleep
+from pyrogram.types import Message
 from config import LOG_CHANNEL
 
-async def delete_message(*args):
-    msgs = [msg.delete() for msg in args if msg]
-    results = await gather(*msgs, return_exceptions=True)
-    for msg, result in zip(args, results, strict=False):
-        if isinstance(result, Exception):
-            logging.error(f"Failed to delete message {msg}: {result}", exc_info=True)
-
-async def edit_message(message, text, buttons=None, markdown=False):
-    parse_mode = enums.ParseMode.MARKDOWN if markdown else enums.ParseMode.HTML
-    try:
-        await message.edit(
-            text=text,
-            disable_web_page_preview=True,
-            reply_markup=buttons,
-            parse_mode=parse_mode,
-        )
-    except FloodWait as f:
-        await sleep(f.value * 1.2)
-        return await edit_message(message, text, buttons, markdown)
-    except (MessageNotModified, MessageEmpty):
-        pass
-    except Exception as e:
-        logging.error(str(e))
-        raise
-
-async def send_message(
-    message,
-    text,
-    buttons=None,
-    photo=None,
-    markdown=False,
-    block=True,
-):
-    parse_mode = enums.ParseMode.MARKDOWN if markdown else enums.ParseMode.HTML
-    try:
-        if isinstance(message, int):
-            from .. import app
-            return await app.send_message(
-                chat_id=message,
-                text=text,
-                disable_web_page_preview=True,
-                disable_notification=True,
-                reply_markup=buttons,
-                parse_mode=parse_mode,
-            )
-        if photo:
-            return await message.reply_photo(
-                photo=photo,
-                reply_to_message_id=message.id,
-                caption=text,
-                reply_markup=buttons,
-                disable_notification=True,
-                parse_mode=parse_mode,
-            )
-        return await message.reply(
-            text=text,
-            quote=True,
-            disable_web_page_preview=True,
-            disable_notification=True,
-            reply_markup=buttons,
-            parse_mode=parse_mode,
-        )
-    except FloodWait as f:
-        logging.warning(str(f))
-        if not block:
-            return message
-        await sleep(f.value * 1.2)
-        return await send_message(message, text, buttons, photo, markdown)
-    except Exception as e:
-        logging.error(str(e))
-        raise
+SESSION = aiohttp.ClientSession()
 
 class ButtonMaker:
     def __init__(self):
@@ -123,19 +54,56 @@ class ButtonMaker:
         if row:
             menu.append(row)
         if self._header_button:
-            h_cnt = len(self._header_button)
-            if h_cnt > h_cols:
-                header_buttons = [self._header_button[i:i + h_cols] for i in range(0, len(self._header_button), h_cols)]
-                menu = header_buttons + menu
-            else:
-                menu.insert(0, self._header_button)
+            menu.insert(0, self._header_button)
         if self._footer_button:
-            f_cnt = len(self._footer_button)
-            if f_cnt > f_cols:
-                [menu.append(self._footer_button[i:i + f_cols]) for i in range(0, len(self._footer_button), f_cols)]
-            else:
-                menu.append(self._footer_button)
+            menu.append(self._footer_button)
         return InlineKeyboardMarkup(menu)
+
+async def edit_message(message, text, buttons=None, markdown=False):
+    parse_mode = enums.ParseMode.MARKDOWN if markdown else enums.ParseMode.HTML
+    try:
+        await message.edit(
+            text=text,
+            disable_web_page_preview=True,
+            reply_markup=buttons,
+            parse_mode=parse_mode
+        )
+    except FloodWait as f:
+        await sleep(f.value * 1.2)
+        return await edit_message(message, text, buttons, markdown)
+    except (MessageNotModified, MessageEmpty):
+        pass
+    except Exception as e:
+        logging.error(str(e))
+        raise
+
+async def send_message(message, text, buttons=None, photo=None, markdown=False, block=True):
+    parse_mode = enums.ParseMode.MARKDOWN if markdown else enums.ParseMode.HTML
+    try:
+        if photo:
+            return await message.reply_photo(
+                photo=photo,
+                caption=text,
+                reply_markup=buttons,
+                disable_notification=True,
+                parse_mode=parse_mode
+            )
+        return await message.reply(
+            text=text,
+            quote=True,
+            disable_web_page_preview=True,
+            disable_notification=True,
+            reply_markup=buttons,
+            parse_mode=parse_mode
+        )
+    except FloodWait as f:
+        await sleep(f.value * 1.2)
+        if not block:
+            return message
+        return await send_message(message, text, buttons, photo, markdown)
+    except Exception as e:
+        logging.error(str(e))
+        raise
 
 CHECK_FORMAT = (
     "<blockquote><b>Name: {name}</b></blockquote>\n"
@@ -160,9 +128,7 @@ def parse_mega_json(data, link):
 async def send_log(client, user, links, results):
     if not LOG_CHANNEL:
         return
-
     log_channel_id = LOG_CHANNEL[0]
-
     if user is None:
         user_display = "Unknown User"
     else:
@@ -171,7 +137,6 @@ async def send_log(client, user, links, results):
             if getattr(user, "username", None)
             else f"{user.first_name} (<code>{user.id}</code>)"
         )
-
     log_text = (
         f"<b>Check Task Log</b>\n"
         f"User: {user_display}\n"
@@ -180,35 +145,38 @@ async def send_log(client, user, links, results):
         "\n\n<b>Results:</b>\n"
         + ("\n".join(results) if results else "No valid MEGA info found.")
     )
-
     try:
         await client.send_message(chat_id=log_channel_id, text=log_text, disable_web_page_preview=True)
     except Exception:
         pass
+
+async def check_single_link(link):
+    try:
+        async with SESSION.post(API_URL, json={"url": link}) as resp:
+            data = await resp.json()
+    except:
+        return None
+    if "error" in data:
+        return None
+    return parse_mega_json(data, link)
 
 async def check_cmd(client, message: Message):
     text = message.text or message.caption or ""
     links = list({x.strip() for x in re.findall(LINK_REGEX, text) if x.strip()})
     if not links:
         return
-
     wait_msg = await send_message(
         message,
         f"Checking {len(links)} MEGA link{'s' if len(links) > 1 else ''}...",
         block=True
     )
-
     tasks = [check_single_link(link) for link in links]
     results = await asyncio.gather(*tasks)
     valid_results = [res for res in results if res]
-
     await send_log(client, message.from_user, links, valid_results)
-
     if not valid_results:
         return await edit_message(wait_msg, "No valid MEGA info found.", markdown=False)
-
     text_output = "\n".join(valid_results)
-
     if message.from_user is None:
         user_display = "Unknown User"
     else:
@@ -217,32 +185,16 @@ async def check_cmd(client, message: Message):
             if getattr(message.from_user, "username", None)
             else f"{message.from_user.first_name} (<code>{message.from_user.id}</code>)"
         )
-
     text_output += f"\n\n<b>By : {user_display}</b>"
-
     bm = ButtonMaker()
-
     if len(valid_results) == 1:
         match = re.search(LINK_REGEX, valid_results[0])
         if match:
             bm.url_button("Open in MEGA", match.group(0))
-
         return await edit_message(
             wait_msg,
             text_output,
             buttons=bm.build_menu(1),
             markdown=False
         )
-
     await edit_message(wait_msg, text_output, markdown=False)
-
-async def check_single_link(link):
-    async with aiohttp.ClientSession() as session:
-        try:
-            async with session.post(API_URL, json={"url": link}) as resp:
-                data = await resp.json()
-        except:
-            return None
-    if "error" in data:
-        return None
-    return parse_mega_json(data, link)
