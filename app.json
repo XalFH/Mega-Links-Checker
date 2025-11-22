@@ -1,0 +1,33 @@
+{
+  "name": "Mega-Links-Checker",
+  "description": "A Telegram bot to check MEGA.nz links displays file/folder names, sizes, lists files and folders in with log channel support.",
+  "repository": "https://github.com/XalFH/Mega-Links-Checker",
+  "keywords": ["telegram", "bot", "mega", "file-checker"],
+  "env": {
+    "API_ID": {
+      "description": "Your Telegram API ID from my.telegram.org",
+      "required": true
+    },
+    "API_HASH": {
+      "description": "Your Telegram API Hash from my.telegram.org",
+      "required": true
+    },
+    "BOT_TOKEN": {
+      "description": "Your Telegram bot token from @BotFather",
+      "required": true
+    },
+    "LOG_CHANNEL": {
+      "description": "Optional: Telegram channel ID for logs",
+      "required": false
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "addons": [],
+  "scripts": {
+    "postdeploy": "echo 'Mega-Links-Checker bot deployed on Heroku!'"
+  }
+}
