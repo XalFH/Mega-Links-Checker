@@ -1,6 +1,6 @@
 # Mega Links Checker Bot
 
-A Telegram bot to check MEGA.nz links displays file/folder names, sizes, lists files and folders in with log channel support.
+A Telegram bot to check MEGA.nz links displays file/folder names, sizes, lists files and folders.
 
 
 ## Deployment Guide
